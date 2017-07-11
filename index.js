@@ -44,11 +44,11 @@ function analyzeFile(localFile) {
 
   const cleanup = (x, tmpdir) =>
         cp.exec(`docker exec ${container} rm -rf ${tmpdir}`)
-        .then(cp.exec(`rm ${localFile}`))
+        .then(() => cp.exec(`rm ${localFile}`))
         .then(() => x)
 
   return init()
-    .then(tmpdir => cp.spawn('docker',  [ 'cp', localFile, `${container}:${tmpdir}/${fileName}` ], )
+    .then(tmpdir => cp.spawn('docker', ['cp', localFile, `${container}:${tmpdir}/${fileName}`])
           .then(() => cmd(tmpdir, 'nomos'))
           .then(nomosStdout =>  cmd(tmpdir, 'monk')
                 .then(monkStdout => {
