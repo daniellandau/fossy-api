@@ -12,6 +12,7 @@
     "body-parser": "^1.17.2",
     "child-process-promise": "^2.2.1",
     "express": "^4.15.3",
+    "promise-limit": "^2.4.0",
     "request": "^2.81.0",
     "request-promise-native": "^1.0.4",
     "shelljs": "^0.7.8"

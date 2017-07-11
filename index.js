@@ -7,6 +7,8 @@ const request = require('request-promise-native')
 const fs = require('fs')
 const util = require('util')
 const path = require('path')
+const promiseLimit = require('promise-limit')
+const limit = promiseLimit(1)
 
 const app = express()
 
@@ -15,9 +17,10 @@ const container = process.env.DOCKER_CONTAINER || 'elegant_kowalevski'
 app.post('/license/url', textParser, (req, res, next) => {
   const url = req.body
 
-  ;(isGitRepo(url)
-   ? analyzeGitRepo(url)
-   : request(url).then(body => analyzeFileContents(`temp/${fileNameForUrl(url)}`, body)))
+  if (isGitRepo(url))
+    analyzeGitRepo(url, res).catch(next)
+  else
+    request(url).then(body => analyzeFileContents(`temp/${fileNameForUrl(url)}`, body))
     .then(results => res.send(results))
     .catch(next)
 })
@@ -30,7 +33,11 @@ const writeFile = util.promisify(fs.writeFile)
 
 function analyzeFile(localFile) {
   const fileName = path.basename(localFile)
-  const cmd = (tmpdir, agent) => `docker exec -i ${container} /usr/local/etc/fossology/mods-enabled/${agent}/agent/${agent} ${tmpdir}/${fileName}`
+  console.log('analyzing', fileName)
+  const cmd = (tmpdir, agent) =>
+        cp.spawn('docker',
+                 [ 'exec', '-i', container, `/usr/local/etc/fossology/mods-enabled/${agent}/agent/${agent}`, `${tmpdir}/${fileName}` ],
+                 { capture: [ 'stdout' ]}).then(pickStdout)
 
   const init = () =>
         cp.exec(`docker exec ${container} mktemp -d`).then(pickStdout)
@@ -41,10 +48,11 @@ function analyzeFile(localFile) {
         .then(() => x)
 
   return init()
-    .then(tmpdir => cp.exec(`docker cp ${localFile} ${container}:${tmpdir}/${fileName}`)
-          .then(() => cp.exec(cmd(tmpdir, 'nomos')).then(pickStdout))
-          .then(nomosStdout => cp.exec(cmd(tmpdir, 'monk')).then(pickStdout)
+    .then(tmpdir => cp.spawn('docker',  [ 'cp', localFile, `${container}:${tmpdir}/${fileName}` ], )
+          .then(() => cmd(tmpdir, 'nomos'))
+          .then(nomosStdout =>  cmd(tmpdir, 'monk')
                 .then(monkStdout => {
+                  console.log('output', fileName)
                   const monkOutput = 'According to monk: ' + monkStdout
                   const nomosOutput = 'According to nomos: ' + nomosStdout
                   return `
@@ -60,14 +68,18 @@ function analyzeFileContents(localFile, contents) {
   return writeFile(localFile, contents).then(() => analyzeFile(localFile))
 }
 
-function analyzeGitRepo(url) {
+function analyzeGitRepo(url, res) {
   return cp.exec('mktemp -d').then(pickStdout).then(tmpdir => {
     return cp.exec(`cd ${tmpdir} && git clone ${cleanGitUrl(url)}`)
       .then(() => cp.exec(`find ${tmpdir} -name .git -prune -or -type f -print`).then(pickStdout))
       .then(lines => lines.split('\n'))
-      .then(files => Promise.all(files.map(analyzeFile)))
-      .then(outputs => outputs.join('\n'))
-      .then(output => { cp.exec(`rm -rf ${tmpdir}`); return output })
+      .then(files => {
+        const promises =
+              files.map(file => limit(() => analyzeFile(file).then(output => res.write(output))))
+        return Promise.all(promises)
+      })
+      .then(() => res.end())
+      .then(() => cp.exec(`rm -rf ${tmpdir}`))
   })
 }
 
