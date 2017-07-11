@@ -8,7 +8,7 @@ const fs = require('fs')
 const util = require('util')
 const path = require('path')
 const promiseLimit = require('promise-limit')
-const limit = promiseLimit(1)
+const limit = promiseLimit(4)
 
 const app = express()
 
@@ -18,7 +18,7 @@ app.post('/license/url', textParser, (req, res, next) => {
   const url = req.body
 
   if (isGitRepo(url))
-    analyzeGitRepo(url, res).catch(next)
+    analyzeGitRepo(url, req, res).catch(next)
   else
     request(url).then(body => analyzeFileContents(`temp/${fileNameForUrl(url)}`, body))
     .then(results => res.send(results))
@@ -68,14 +68,18 @@ function analyzeFileContents(localFile, contents) {
   return writeFile(localFile, contents).then(() => analyzeFile(localFile))
 }
 
-function analyzeGitRepo(url, res) {
+function analyzeGitRepo(url, req, res) {
+  let stillOpen = true
+  req.on('close', () => { stillOpen = false })
+
   return cp.exec('mktemp -d').then(pickStdout).then(tmpdir => {
     return cp.exec(`cd ${tmpdir} && git clone ${cleanGitUrl(url)}`)
+      .then(() => console.log('cloning done'))
       .then(() => cp.exec(`find ${tmpdir} -name .git -prune -or -type f -print`).then(pickStdout))
       .then(lines => lines.split('\n'))
       .then(files => {
         const promises =
-              files.map(file => limit(() => analyzeFile(file).then(output => res.write(output))))
+              files.map(file => limit(() => stillOpen ? analyzeFile(file).then(output => res.write(output)) : Promise.reject('uh oh')))
         return Promise.all(promises)
       })
       .then(() => res.end())
