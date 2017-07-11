@@ -60,3 +60,19 @@ ${nomosOutput}
 function fileNameForUrl(url) {
   return require('path').basename(require('url').parse(url).pathname)
 }
+
+function isGitRepo(url) {
+  return url.endsWith('.git') || isGithubRepo(url)
+}
+
+function isGithubRepo(url) {
+  return /^https:\/\/github.com\/\w+\/\w+$/.test(url)
+}
+
+function cleanGitUrl(url) {
+  if (!isGitRepo(url)) throw new Error('Called with non git url:', url)
+
+  if (!isGithubRepo(url)) return url
+
+  return url + '.git'
+}
