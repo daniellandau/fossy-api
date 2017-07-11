@@ -75,16 +75,30 @@ function analyzeGitRepo(url, req, res) {
   return cp.exec('mktemp -d').then(pickStdout).then(tmpdir => {
     return cp.exec(`cd ${tmpdir} && git clone ${cleanGitUrl(url)}`)
       .then(() => console.log('cloning done'))
+      .then(() => mainLicenseForRepo(tmpdir).then(output => {
+        res.write(`{ "main-license": ${JSON.stringify(output)},
+  "file-licenses": [
+`)
+      }))
       .then(() => cp.exec(`find ${tmpdir} -name .git -prune -or -type f -print`).then(pickStdout))
-      .then(lines => lines.split('\n'))
+      .then(output => output.split('\n'))
       .then(files => {
         const promises =
-              files.map(file => limit(() => stillOpen ? analyzeFile(file).then(output => res.write(output)) : Promise.reject('uh oh')))
+              files.map((file, i) => limit(() => stillOpen ? analyzeFile(file).then(output => res.write(`    { "file": ${JSON.stringify(file)}, "output": ${JSON.stringify(output)} }${i === files.length - 1 ? '' : ','}\n`)) : Promise.reject('uh oh')))
         return Promise.all(promises)
       })
+      .then(() => res.write('  ]\n}'))
       .then(() => res.end())
       .then(() => cp.exec(`rm -rf ${tmpdir}`))
   })
+}
+
+function mainLicenseForRepo(dir) {
+  return cp.exec(`find ${dir} -iname license\* -or -iname copying\*`)
+    .then(pickStdout)
+    .then(output => output.split('\n'))
+    .then(files => files.sort((a, b) => a.length - b.length))
+    .then(files => files.length > 0 ? analyzeFile(files[0]) : Promise.reslove('No main license found'))
 }
 
 
