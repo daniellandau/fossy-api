@@ -1,9 +1,11 @@
 const express = require('express')
 const shell = require('shelljs')
-const bodyParser = require('body-parser');
-const textParser = bodyParser.text();
-const cp = require('child_process');
-const request = require('request-promise-native');
+const bodyParser = require('body-parser')
+const textParser = bodyParser.text()
+const cp = require('child-process-promise')
+const request = require('request-promise-native')
+const fs = require('fs')
+const util = require('util')
 
 const app = express()
 
@@ -12,7 +14,7 @@ const container = process.env.DOCKER_CONTAINER || 'elegant_kowalevski'
 app.post('/license/url', textParser, (req, res, next) => {
   const url = req.body
   request(url)
-    .then(body => analyzeFile(body))
+    .then(body => analyzeFile(fileNameForUrl(url), body))
     .then(results => res.send(results))
     .catch(next)
 })
@@ -21,25 +23,40 @@ app.listen(3000, () => {
   console.log('Listening on 3000')
 })
 
-function analyzeFile(contents) {
-  const cmd = (agent) => `docker exec -i ${container} bash "-c" \'f=$(tempfile); cat >$f; /usr/local/etc/fossology/mods-enabled/${agent}/agent/${agent} $f\'`
+const writeFile = util.promisify(fs.writeFile)
 
-  return new Promise((resolve, reject) => {
-    const nomos = cp.exec(cmd('nomos'), (error, nomosStdout, stderr) => {
-      if (error) return reject(error)
-      const monk = cp.exec(cmd('monk'), (error, monkStdout, stderr) => {
-        if (error) return reject(error)
-        const monkOutput = 'According to monk: ' + monkStdout
-        const nomosOutput = 'According to nomos: ' + nomosStdout
-        return resolve(`
+function analyzeFile(fileName, contents) {
+  const localFile = `temp/${fileName}`
+  const cmd = (tmpdir, agent) => `docker exec -i ${container} /usr/local/etc/fossology/mods-enabled/${agent}/agent/${agent} ${tmpdir}/${fileName}`
+
+  const pickStdout = ({ stdout }) => stdout
+
+  const init = () =>
+        cp.exec(`docker exec ${container} mktemp -d`).then(pickStdout).then(x => x.replace(/\s/g, ''))
+
+  const cleanup = (x, tmpdir) =>
+        cp.exec(`docker exec ${container} rm -rf ${tmpdir}`)
+        .then(cp.exec(`rm ${fileName}`))
+        .then(() => x)
+
+  return writeFile(localFile, contents)
+    .then(init)
+    .then((tmpdir) => cp.exec(`docker cp ${localFile} ${container}:${tmpdir}/${fileName}`)
+          .then(() => cp.exec(cmd(tmpdir, 'nomos')).then(pickStdout))
+          .then(nomosStdout => cp.exec(cmd(tmpdir, 'monk')).then(pickStdout)
+                .then(monkStdout => {
+                  const monkOutput = 'According to monk: ' + monkStdout
+                  const nomosOutput = 'According to nomos: ' + nomosStdout
+                  console.log('faoeuaoeu')
+                  return `
 ${monkOutput}
 ${nomosOutput}
-`)
-      })
-      monk.stdin.write(contents)
-      monk.stdin.end()
-    })
-    nomos.stdin.write(contents)
-    nomos.stdin.end()
-  })
+`
+                })).then((x) => cleanup(x, tmpdir))
+          .catch((x) => cleanup(x, tmpdir))
+         )
+}
+
+function fileNameForUrl(url) {
+  return require('path').basename(require('url').parse(url).pathname)
 }
