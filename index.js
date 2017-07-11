@@ -6,6 +6,7 @@ const cp = require('child-process-promise')
 const request = require('request-promise-native')
 const fs = require('fs')
 const util = require('util')
+const path = require('path')
 
 const app = express()
 
@@ -13,8 +14,10 @@ const container = process.env.DOCKER_CONTAINER || 'elegant_kowalevski'
 
 app.post('/license/url', textParser, (req, res, next) => {
   const url = req.body
-  request(url)
-    .then(body => analyzeFile(fileNameForUrl(url), body))
+
+  ;(isGitRepo(url)
+   ? analyzeGitRepo(url)
+   : request(url).then(body => analyzeFileContents(`temp/${fileNameForUrl(url)}`, body)))
     .then(results => res.send(results))
     .catch(next)
 })
@@ -25,29 +28,25 @@ app.listen(3000, () => {
 
 const writeFile = util.promisify(fs.writeFile)
 
-function analyzeFile(fileName, contents) {
-  const localFile = `temp/${fileName}`
+function analyzeFile(localFile) {
+  const fileName = path.basename(localFile)
   const cmd = (tmpdir, agent) => `docker exec -i ${container} /usr/local/etc/fossology/mods-enabled/${agent}/agent/${agent} ${tmpdir}/${fileName}`
 
-  const pickStdout = ({ stdout }) => stdout
-
   const init = () =>
-        cp.exec(`docker exec ${container} mktemp -d`).then(pickStdout).then(x => x.replace(/\s/g, ''))
+        cp.exec(`docker exec ${container} mktemp -d`).then(pickStdout)
 
   const cleanup = (x, tmpdir) =>
         cp.exec(`docker exec ${container} rm -rf ${tmpdir}`)
-        .then(cp.exec(`rm ${fileName}`))
+        .then(cp.exec(`rm ${localFile}`))
         .then(() => x)
 
-  return writeFile(localFile, contents)
-    .then(init)
-    .then((tmpdir) => cp.exec(`docker cp ${localFile} ${container}:${tmpdir}/${fileName}`)
+  return init()
+    .then(tmpdir => cp.exec(`docker cp ${localFile} ${container}:${tmpdir}/${fileName}`)
           .then(() => cp.exec(cmd(tmpdir, 'nomos')).then(pickStdout))
           .then(nomosStdout => cp.exec(cmd(tmpdir, 'monk')).then(pickStdout)
                 .then(monkStdout => {
                   const monkOutput = 'According to monk: ' + monkStdout
                   const nomosOutput = 'According to nomos: ' + nomosStdout
-                  console.log('faoeuaoeu')
                   return `
 ${monkOutput}
 ${nomosOutput}
@@ -57,8 +56,24 @@ ${nomosOutput}
          )
 }
 
+function analyzeFileContents(localFile, contents) {
+  return writeFile(localFile, contents).then(() => analyzeFile(localFile))
+}
+
+function analyzeGitRepo(url) {
+  return cp.exec('mktemp -d').then(pickStdout).then(tmpdir => {
+    return cp.exec(`cd ${tmpdir} && git clone ${cleanGitUrl(url)}`)
+      .then(() => cp.exec(`find ${tmpdir} -name .git -prune -or -type f -print`).then(pickStdout))
+      .then(lines => lines.split('\n'))
+      .then(files => Promise.all(files.map(analyzeFile)))
+      .then(outputs => outputs.join('\n'))
+      .then(output => { cp.exec(`rm -rf ${tmpdir}`); return output })
+  })
+}
+
+
 function fileNameForUrl(url) {
-  return require('path').basename(require('url').parse(url).pathname)
+  return path.basename(require('url').parse(url).pathname)
 }
 
 function isGitRepo(url) {
@@ -76,3 +91,5 @@ function cleanGitUrl(url) {
 
   return url + '.git'
 }
+
+function pickStdout({ stdout }) { return stdout.trim() }
