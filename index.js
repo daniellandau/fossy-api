@@ -51,15 +51,15 @@ function analyzeFile(localFile) {
     .then(tmpdir => cp.spawn('docker', ['cp', localFile, `${container}:${tmpdir}/${fileName}`])
           .then(() => cmd(tmpdir, 'nomos'))
           .then(nomosStdout =>  cmd(tmpdir, 'monk')
-                .then(monkStdout => {
-                  console.log('output', fileName)
-                  const monkOutput = 'According to monk: ' + monkStdout
-                  const nomosOutput = 'According to nomos: ' + nomosStdout
-                  return `
-${monkOutput}
-${nomosOutput}
-`
-                })).then((x) => cleanup(x, tmpdir))
+                .then(monkStdout => cmd(tmpdir, 'copyright')
+                      .then(copyrightStdout => {
+                        console.log('output', fileName)
+                        return {
+                          monk: monkStdout,
+                          nomos: nomosStdout,
+                          copyright: copyrightStdout
+                        }
+                      }))).then((x) => cleanup(x, tmpdir))
           .catch((x) => cleanup(x, tmpdir))
          )
 }
