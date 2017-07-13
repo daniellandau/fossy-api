@@ -73,8 +73,17 @@ function analyzeGitRepo(url, req, res) {
       .then(() => cp.exec(`find ${tmpdir} -name .git -prune -or -type f -print`).then(pickStdout))
       .then(output => output.split('\n'))
       .then(files => {
+        // keep tabs of output order with shared index
+        let i = 0;
         const promises =
-              files.map((file, i) => limit(() => stillOpen ? analyzeFile(file).then(output => res.write(`    { "file": ${JSON.stringify(file)}, "output": ${JSON.stringify(output)} }${i === files.length - 1 ? '' : ','}\n`)) : Promise.reject('uh oh')))
+              files.map((file) => limit(() => {
+                return stillOpen
+                  ? analyzeFile(file)
+                  .then(output => {
+                    res.write(`    { "file": ${JSON.stringify(file)}, "output": ${JSON.stringify(output)} }${i === files.length - 1 ? '' : ','}\n`)
+                    ++i;
+                  })
+                  : Promise.reject('uh oh') }))
         return Promise.all(promises)
       })
       .then(() => res.write('  ]\n}'))
