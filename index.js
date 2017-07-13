@@ -70,7 +70,7 @@ function analyzeGitRepo(url, req, res) {
   "file-licenses": [
 `)
       }))
-      .then(() => cp.exec(`find ${tmpdir} -name .git -prune -or -type f -print`).then(pickStdout))
+      .then(() => cp.exec(`find ${tmpdir} -name .git -prune -or -type f -print`, { maxBuffer: 10000*1024}).then(pickStdout))
       .then(output => output.split('\n'))
       .then(files => {
         // keep tabs of output order with shared index
