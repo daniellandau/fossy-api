@@ -12,8 +12,6 @@ const limit = promiseLimit(4)
 
 const app = express()
 
-const container = process.env.DOCKER_CONTAINER || 'elegant_kowalevski'
-
 app.post('/license/url', textParser, (req, res, next) => {
   const url = req.body
 
@@ -34,34 +32,26 @@ const writeFile = util.promisify(fs.writeFile)
 function analyzeFile(localFile) {
   const fileName = path.basename(localFile)
   console.log('analyzing', fileName)
-  const cmd = (tmpdir, agent) =>
-        cp.spawn('docker',
-                 [ 'exec', '-i', container, `/usr/local/etc/fossology/mods-enabled/${agent}/agent/${agent}`, `${tmpdir}/${fileName}` ],
+  const cmd = (agent) =>
+        cp.spawn(`/usr/local/etc/fossology/mods-enabled/${agent}/agent/${agent}`, [ localFile ],
                  { capture: [ 'stdout' ]}).then(pickStdout)
 
-  const init = () =>
-        cp.exec(`docker exec ${container} mktemp -d`).then(pickStdout)
-
-  const cleanup = (x, tmpdir) =>
-        cp.exec(`docker exec ${container} rm -rf ${tmpdir}`)
-        .then(() => cp.exec(`rm ${localFile}`))
+  const cleanup = (x) =>
+        cp.exec(`rm ${localFile}`)
         .then(() => x)
 
-  return init()
-    .then(tmpdir => cp.spawn('docker', ['cp', localFile, `${container}:${tmpdir}/${fileName}`])
-          .then(() => cmd(tmpdir, 'nomos'))
-          .then(nomosStdout =>  cmd(tmpdir, 'monk')
-                .then(monkStdout => cmd(tmpdir, 'copyright')
-                      .then(copyrightStdout => {
-                        console.log('output', fileName)
-                        return {
-                          monk: monkStdout,
-                          nomos: nomosStdout,
-                          copyright: copyrightStdout
-                        }
-                      }))).then((x) => cleanup(x, tmpdir))
-          .catch((x) => cleanup(x, tmpdir))
-         )
+  return cmd('nomos')
+    .then(nomosStdout =>  cmd('monk')
+          .then(monkStdout => cmd('copyright')
+                .then(copyrightStdout => {
+                  console.log('output', fileName)
+                  return {
+                    monk: monkStdout,
+                    nomos: nomosStdout,
+                    copyright: copyrightStdout
+                  }
+                }))).then((x) => cleanup(x))
+    .catch((x) => cleanup(x))
 }
 
 function analyzeFileContents(localFile, contents) {
