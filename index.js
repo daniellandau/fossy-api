@@ -33,7 +33,7 @@ function analyzeFile(localFile) {
   const fileName = path.basename(localFile)
   console.log('analyzing', fileName)
   const cmd = (agent) =>
-        cp.spawn(`/usr/local/etc/fossology/mods-enabled/${agent}/agent/${agent}`, [ localFile ],
+        cp.spawn(`/usr/local/etc/fossology/mods-enabled/${agent}/agent/${agent}`, [ '-J', localFile ],
                  { capture: [ 'stdout' ]}).then(pickStdout)
 
   const cleanup = (x) =>
@@ -46,9 +46,9 @@ function analyzeFile(localFile) {
                 .then(copyrightStdout => {
                   console.log('output', fileName)
                   return {
-                    monk: monkStdout,
-                    nomos: nomosStdout,
-                    copyright: copyrightStdout
+                    monk: JSON.parse(monkStdout),
+                    nomos: JSON.parse(nomosStdout),
+                    copyright: JSON.parse(copyrightStdout)
                   }
                 }))).then((x) => cleanup(x))
     .catch((x) => cleanup(x))
