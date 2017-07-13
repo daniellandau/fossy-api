@@ -64,4 +64,4 @@ echo
 /etc/init.d/fossology start
 #/usr/sbin/apache2ctl -D FOREGROUND
 cd /fossy-api
-npm start
+node index.js
