@@ -1,0 +1,3 @@
+[submodule "fossology"]
+	path = fossology
+	url = git@github.com:daniellandau/fossology.git
