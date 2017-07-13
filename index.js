@@ -110,7 +110,7 @@ function isGitRepo(url) {
 }
 
 function isGithubRepo(url) {
-  return /^https:\/\/github.com\/\w+\/\w+$/.test(url)
+  return /^https:\/\/github.com\/[^/]+\/[^/]+$/.test(url)
 }
 
 function cleanGitUrl(url) {
