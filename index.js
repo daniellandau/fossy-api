@@ -97,7 +97,7 @@ function mainLicenseForRepo(dir) {
     .then(pickStdout)
     .then(output => output.split('\n'))
     .then(files => files.sort((a, b) => a.length - b.length))
-    .then(files => files.length > 0 ? analyzeFile(files[0]) : Promise.reslove('No main license found'))
+    .then(files => files.length > 0 ? analyzeFile(files[0]) : Promise.resolve('No main license found'))
 }
 
 
