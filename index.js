@@ -37,7 +37,7 @@ function analyzeFile(localFile) {
                  { capture: [ 'stdout' ]}).then(pickStdout)
 
   const cleanup = (x) =>
-        cp.exec(`rm ${localFile}`)
+        cp.spawn('rm', [ localFile ])
         .then(() => x)
 
   return cmd('nomos')
