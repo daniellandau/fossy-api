@@ -40,17 +40,29 @@ function analyzeFile(localFile) {
         cp.spawn('rm', [ localFile ])
         .then(() => x)
 
-  return cmd('nomos')
-    .then(nomosStdout =>  cmd('monk')
-          .then(monkStdout => cmd('copyright')
-                .then(copyrightStdout => {
-                  console.log('output', fileName)
-                  return {
-                    monk: JSON.parse(monkStdout),
-                    nomos: JSON.parse(nomosStdout),
-                    copyright: JSON.parse(copyrightStdout)
-                  }
-                }))).then((x) => cleanup(x))
+  const scans = [
+    cmd('nomos'),
+    cmd('monk'),
+    cmd('copyright'),
+    cp.spawn('ninka', [ localFile ], { capture: [ 'stdout' ]}).then(pickStdout)
+  ]
+
+  return Promise.all(scans).then(([
+    monkStdout,
+    nomosStdout,
+    copyrightStdout,
+    ninkaStdout
+  ]) => {
+    console.log('output', fileName)
+    const ninkaLicenses = ninkaStdout
+          .split(';')[1].split(',')
+    return {
+      monk: JSON.parse(monkStdout),
+      nomos: JSON.parse(nomosStdout),
+      copyright: JSON.parse(copyrightStdout),
+      ninka: ninkaLicenses
+    }
+  }).then((x) => cleanup(x))
     .catch((x) => cleanup(x))
 }
 
@@ -83,7 +95,7 @@ function analyzeGitRepo(url, req, res) {
                     res.write(`    { "file": ${JSON.stringify(file)}, "output": ${JSON.stringify(output)} }${i === files.length - 1 ? '' : ','}\n`)
                     ++i;
                   })
-                  : Promise.reject('uh oh') }))
+                : Promise.reject('uh oh') }))
         return Promise.all(promises)
       })
       .then(() => res.write('  ]\n}'))
