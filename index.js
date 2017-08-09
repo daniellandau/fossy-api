@@ -125,11 +125,15 @@ function fileNameForUrl(url) {
 }
 
 function isGitRepo(url) {
-  return url.endsWith('.git') || isGithubRepo(url)
+  return url.endsWith('.git') || isGithubRepo(url) || isAndroidSourceRepo(url)
 }
 
 function isGithubRepo(url) {
   return /^https:\/\/github.com\/[^/]+\/[^/]+$/.test(url)
+}
+
+function isAndroidSourceRepo(url) {
+  return url.startsWith('https://android.googlesource.com/')
 }
 
 function cleanGitUrl(url) {
