@@ -37,7 +37,7 @@ function analyzeFile(localFile) {
                  { capture: [ 'stdout' ]}).then(pickStdout)
 
   const cleanup = (x) =>
-        cp.spawn('rm', [ localFile ])
+        cp.spawn('rm', [ '-f', localFile ])
         .then(() => x)
 
   const scans = [
@@ -48,8 +48,8 @@ function analyzeFile(localFile) {
   ]
 
   return Promise.all(scans).then(([
-    monkStdout,
     nomosStdout,
+    monkStdout,
     copyrightStdout,
     ninkaStdout
   ]) => {
@@ -75,6 +75,7 @@ function analyzeGitRepo(url, req, res) {
   req.on('close', () => { stillOpen = false })
 
   return cp.exec('mktemp -d').then(pickStdout).then(tmpdir => {
+    console.log('cloning ' + cleanGitUrl(url))
     return cp.exec(`cd ${tmpdir} && git clone ${cleanGitUrl(url)}`)
       .then(() => console.log('cloning done'))
       .then(() => mainLicenseForRepo(tmpdir).then(output => {
@@ -108,7 +109,7 @@ function mainLicenseForRepo(dir) {
   return cp.exec(`find ${dir} -iname license\* -or -iname copying\*`)
     .then(pickStdout)
     .then(output => output.split('\n'))
-    .then(files => files.sort((a, b) => a.length - b.length))
+    .then(files => files.sort((a, b) => a.length - b.length).filter(x => x.length > 0))
     .then(files => files.length > 0 ? analyzeFile(files[0]) : Promise.resolve('No main license found'))
 }
 
