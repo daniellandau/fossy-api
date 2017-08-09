@@ -7,10 +7,16 @@ const request = require('request-promise-native')
 const fs = require('fs')
 const util = require('util')
 const path = require('path')
+const timeout = require('connect-timeout')
 const promiseLimit = require('promise-limit')
 const limit = promiseLimit(4)
 
 const app = express()
+
+app.use('*', (req, res, next) => {
+  req.connection.setTimeout(0)
+  next()
+})
 
 app.post('/license/url', textParser, (req, res, next) => {
   const url = req.body
