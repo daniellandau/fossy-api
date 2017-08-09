@@ -37,9 +37,11 @@ RUN /fossy-api/install-spdx-tools.sh
 
 RUN /fossy-api/install-ninka.sh
 
-COPY . .
+COPY ./fossology /fossology
 
-RUN cd fossology && make install
+RUN cd /fossology && make install
+
+COPY . .
 
 RUN cp /fossy-api/fossology/install/src-install-apache-example.conf /etc/apache2/conf-available/fossology.conf && \
     ln -s /etc/apache2/conf-available/fossology.conf /etc/apache2/conf-enabled/fossology.conf
