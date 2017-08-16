@@ -99,7 +99,7 @@ function analyzeGitRepo(url, req, res) {
                 return stillOpen
                   ? analyzeFile(file)
                   .then(output => {
-                    res.write(`    { "file": ${JSON.stringify(file)}, "output": ${JSON.stringify(output)} }${i === files.length - 1 ? '' : ','}\n`)
+                    res.write(`    { "file": ${JSON.stringify(file.replace(tmpdir, ''))}, "output": ${JSON.stringify(output)} }${i === files.length - 1 ? '' : ','}\n`)
                     ++i;
                   })
                 : Promise.reject('uh oh') }))
