@@ -82,7 +82,7 @@ function analyzeGitRepo(url, req, res) {
 
   return cp.exec('mktemp -d').then(pickStdout).then(tmpdir => {
     console.log('cloning ' + cleanGitUrl(url))
-    return cp.exec(`cd ${tmpdir} && git clone ${cleanGitUrl(url)}`)
+    return cp.spawn('git', [ 'clone', cleanGitUrl(url) ], { cwd: tmpdir })
       .then(() => console.log('cloning done'))
       .then(() => mainLicenseForRepo(tmpdir).then(output => {
         res.write(`{ "main-license": ${JSON.stringify(output)},
