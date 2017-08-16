@@ -65,7 +65,7 @@ function analyzeFile(localFile) {
     return {
       monk: JSON.parse(monkStdout),
       nomos: JSON.parse(nomosStdout),
-      copyright: JSON.parse(copyrightStdout),
+      copyright: JSON.parse(copyrightStdout).results,
       ninka: ninkaLicenses
     }
   }).then((x) => cleanup(x))
@@ -116,7 +116,7 @@ function mainLicenseForRepo(dir) {
     .then(pickStdout)
     .then(output => output.split('\n'))
     .then(files => files.sort((a, b) => a.length - b.length).filter(x => x.length > 0))
-    .then(files => files.length > 0 ? analyzeFile(files[0]) : Promise.resolve('No main license found'))
+    .then(files => files.length > 0 ? analyzeFile(files[0]) : Promise.resolve({ monk: [], ninka: [], nomos: [], copyright: []}))
 }
 
 
