@@ -65,7 +65,7 @@ function analyzeFile(localFile) {
     return {
       monk: JSON.parse(monkStdout),
       nomos: JSON.parse(nomosStdout),
-      copyright: JSON.parse(copyrightStdout),
+      copyright: JSON.parse(copyrightStdout).results,
       ninka: ninkaLicenses
     }
   }).then((x) => cleanup(x))
@@ -82,7 +82,7 @@ function analyzeGitRepo(url, req, res) {
 
   return cp.exec('mktemp -d').then(pickStdout).then(tmpdir => {
     console.log('cloning ' + cleanGitUrl(url))
-    return cp.exec(`cd ${tmpdir} && git clone ${cleanGitUrl(url)}`)
+    return cp.spawn('git', [ 'clone', cleanGitUrl(url) ], { cwd: tmpdir })
       .then(() => console.log('cloning done'))
       .then(() => mainLicenseForRepo(tmpdir).then(output => {
         res.write(`{ "main-license": ${JSON.stringify(output)},
@@ -99,7 +99,7 @@ function analyzeGitRepo(url, req, res) {
                 return stillOpen
                   ? analyzeFile(file)
                   .then(output => {
-                    res.write(`    { "file": ${JSON.stringify(file)}, "output": ${JSON.stringify(output)} }${i === files.length - 1 ? '' : ','}\n`)
+                    res.write(`    { "file": ${JSON.stringify(file.replace(tmpdir, ''))}, "output": ${JSON.stringify(output)} }${i === files.length - 1 ? '' : ','}\n`)
                     ++i;
                   })
                 : Promise.reject('uh oh') }))
@@ -116,7 +116,7 @@ function mainLicenseForRepo(dir) {
     .then(pickStdout)
     .then(output => output.split('\n'))
     .then(files => files.sort((a, b) => a.length - b.length).filter(x => x.length > 0))
-    .then(files => files.length > 0 ? analyzeFile(files[0]) : Promise.resolve('No main license found'))
+    .then(files => files.length > 0 ? analyzeFile(files[0]) : Promise.resolve({ monk: [], ninka: [], nomos: [], copyright: []}))
 }
 
 
