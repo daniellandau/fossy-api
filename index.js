@@ -112,7 +112,7 @@ function analyzeGitRepo(url, req, res) {
 }
 
 function mainLicenseForRepo(dir) {
-  return cp.exec(`find ${dir} -iname license\* -or -iname copying\*`)
+  return cp.exec(`find ${dir} -iname license\* -or -iname copying\* -or -iname notice\*`)
     .then(pickStdout)
     .then(output => output.split('\n'))
     .then(files => files.sort((a, b) => a.length - b.length).filter(x => x.length > 0))
