@@ -63,9 +63,9 @@ function analyzeFile(localFile) {
     const ninkaLicenses = ninkaStdout
           .split(';')[1].split(',')
     return {
-      monk: JSON.parse(monkStdout),
-      nomos: JSON.parse(nomosStdout),
-      copyright: JSON.parse(copyrightStdout).results,
+      monk: nullableParse(monkStdout) || [],
+      nomos: nullableParse(nomosStdout) || [],
+      copyright: nullableParse(copyrightStdout).results || [],
       ninka: ninkaLicenses
     }
   }).then((x) => cleanup(x))
@@ -112,7 +112,7 @@ function analyzeGitRepo(url, req, res) {
 }
 
 function mainLicenseForRepo(dir) {
-  return cp.exec(`find ${dir} -iname license\* -or -iname copying\*`)
+  return cp.exec(`find ${dir} -iname license\* -or -iname copying\* -or -iname notice\*`)
     .then(pickStdout)
     .then(output => output.split('\n'))
     .then(files => files.sort((a, b) => a.length - b.length).filter(x => x.length > 0))
@@ -145,3 +145,11 @@ function cleanGitUrl(url) {
 }
 
 function pickStdout({ stdout }) { return stdout.trim() }
+
+function nullableParse(str) {
+  try {
+    return JSON.parse(str)
+  } catch (e){
+    return null;
+  }
+}
