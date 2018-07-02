@@ -1,3 +1,5 @@
+// Copyright (c) Codescoop Oy 2017. Licensed under the MIT license.
+// SPDX-License-Identifier: MIT
 const express = require('express')
 const shell = require('shelljs')
 const bodyParser = require('body-parser')

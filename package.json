@@ -1,13 +1,13 @@
 {
   "name": "fossy-api",
-  "version": "0.0.0",
-  "description": "",
+  "version": "0.0.1",
+  "description": "Small HTTP wrapper around license scanners used by Fossology",
   "main": "index.js",
   "scripts": {
     "start": "nodemon -i temp"
   },
   "author": "",
-  "license": "None",
+  "license": "MIT",
   "dependencies": {
     "body-parser": "^1.17.2",
     "child-process-promise": "^2.2.1",
